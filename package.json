@@ -1,0 +1,50 @@
+{
+  "name": "quickfix",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "backend": "node backend/server.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/geolocation": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@upstash/ratelimit": "^2.0.7",
+    "@upstash/redis": "^1.36.0",
+    "clsx": "^2.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "framer-motion": "^12.24.0",
+    "google-auth-library": "^10.5.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.9.0",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "rate-limiter-flexible": "^9.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5"
+  }
+}
