@@ -8,6 +8,7 @@ import { ModernButton } from '@/components/ui/ModernButton';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { ArrowLeft, Calendar, Clock, Upload, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { API_BASE_URL } from '@/lib/api';
 
 function BookingContent() {
     const searchParams = useSearchParams();
@@ -34,11 +35,11 @@ function BookingContent() {
                 type: bookingType
             };
 
-            console.log("Attempting booking to: http://10.0.2.2:3001/api/bookings");
+            console.log(`Attempting booking to: ${API_BASE_URL}/api/bookings`);
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-            const response = await fetch('http://10.0.2.2:3001/api/bookings', {
+            const response = await fetch(`${API_BASE_URL}/api/bookings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

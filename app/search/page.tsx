@@ -7,6 +7,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { ModernButton } from '@/components/ui/ModernButton';
 import { MapPin, Star, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { API_BASE_URL } from '@/lib/api';
 
 function SearchResults() {
     const searchParams = useSearchParams();
@@ -30,14 +31,14 @@ function SearchResults() {
 
                 let apiData = null;
                 try {
-                    const url = `http://10.0.2.2:3001/api/search?service=${service}&location=${location}`;
+                    const url = `${API_BASE_URL}/api/search?service=${service}&location=${location}`;
                     console.log(`Searching via: ${url}`);
                     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
                     if (res.ok) {
                         apiData = await res.json();
                     }
                 } catch (e) {
-                    console.warn("Backend unreachable via 10.0.2.2. Using Client-Side Mock Data.");
+                    console.warn(`Backend unreachable via ${API_BASE_URL}. Using Client-Side Mock Data.`);
                 }
 
                 if (apiData) {
