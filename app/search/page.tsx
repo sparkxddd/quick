@@ -30,20 +30,14 @@ function SearchResults() {
 
                 let apiData = null;
                 try {
-                    // Try Android Emulator Host first if in Capacitor (simplified logic)
-                    // Real device would need actual LAN IP
-                    const baseUrl = 'http://10.0.2.2:3001';
-                    const res = await fetch(`${baseUrl}/api/search?service=${service}&location=${location}`, { signal: AbortSignal.timeout(2000) });
-                    if (res.ok) apiData = await res.json();
-                } catch (e) {
-                    console.log("Localhost/Emulator API failed, trying web localhost...");
-                    try {
-                        const baseUrl = 'http://localhost:3001';
-                        const res = await fetch(`${baseUrl}/api/search?service=${service}&location=${location}`, { signal: AbortSignal.timeout(2000) });
-                        if (res.ok) apiData = await res.json();
-                    } catch (e2) {
-                        console.warn("Backend unreachable. Using Client-Side Mock Data.");
+                    const url = `http://10.0.2.2:3001/api/search?service=${service}&location=${location}`;
+                    console.log(`Searching via: ${url}`);
+                    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+                    if (res.ok) {
+                        apiData = await res.json();
                     }
+                } catch (e) {
+                    console.warn("Backend unreachable via 10.0.2.2. Using Client-Side Mock Data.");
                 }
 
                 if (apiData) {

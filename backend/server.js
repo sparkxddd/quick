@@ -3,27 +3,41 @@ const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const env = require('./config/env');
-const Redis = require('ioredis');
-
-// Initialize Redis Client
-const redisClient = new Redis(env.REDIS_URL);
-
-redisClient.on('error', (err) => {
-    console.error('Redis Client Error', err);
-});
-
-redisClient.on('connect', () => {
-    console.log('Redis connected');
-});
-
+const redisClient = require('./config/redis');
 const app = express();
 
 // Security Middleware
 app.use(helmet()); // Set secure HTTP headers
+
+// Relaxed CORS for mobile/dev
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+    'http://localhost',
+    'capacitor://localhost',
+    'http://10.0.2.2:3001',
+    'http://10.0.2.2'
+].filter(Boolean);
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || origin.startsWith('capacitor://localhost')) {
+            callback(null, true);
+        } else {
+            console.warn(`[CORS] Rejected origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
 }));
+
+// Request Logging Middleware for debugging connectivity
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin || 'No Origin'}`);
+    next();
+});
 app.use(express.json({ limit: '10kb' })); // Body limit protection
 app.use(cookieParser());
 const secretGuard = require('./middleware/secretGuard');
@@ -34,7 +48,8 @@ app.enable('trust proxy');
 
 // Rate Limiting (Global for unauthenticated API, specific for auth)
 const rateLimiter = require('./middleware/rateLimiter');
-// app.use(rateLimiter('common')); // Optional: Apply global limit to everything if desired, but we want granular
+rateLimiter.init(redisClient); // Initialize with Redis (or fall back if connection fails internally handled)
+// app.use(rateLimiter.middleware('common')); // Optional global
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
@@ -42,6 +57,7 @@ const searchRoutes = require('./routes/search.routes');
 
 app.use('/auth', authRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/bookings', require('./routes/booking.routes'));
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });

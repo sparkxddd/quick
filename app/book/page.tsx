@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import React, { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { ModernButton } from '@/components/ui/ModernButton';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -12,12 +13,57 @@ function BookingContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const serviceType = searchParams.get('service') || 'General Request';
+    const providerName = searchParams.get('provider') || '';
+    const priceStr = searchParams.get('price') || '0';
+    const location = searchParams.get('location') || ''; // Add address param
 
     const [step, setStep] = useState(1);
     const [bookingType, setBookingType] = useState<'instant' | 'scheduled'>('instant');
+    const [description, setDescription] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleConfirm = () => {
-        router.push('/tracking');
+    const handleConfirm = async () => {
+        setLoading(true);
+        try {
+            const payload = {
+                service_type: serviceType,
+                provider_name: providerName || undefined,
+                address_text: location || "User's current location",
+                description: description,
+                price: parseFloat(priceStr),
+                type: bookingType
+            };
+
+            console.log("Attempting booking to: http://10.0.2.2:3001/api/bookings");
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const response = await fetch('http://10.0.2.2:3001/api/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (response && response.ok) {
+                const data = await response.json();
+                console.log("Booking success:", data);
+                alert("Booking confirmed! Redirecting to tracking...");
+                router.push('/tracking');
+            } else {
+                const errorText = await response.text();
+                throw new Error(`Server returned ${response.status}: ${errorText}`);
+            }
+
+        } catch (error: any) {
+            console.error("Booking Error Details:", error);
+            const errorMsg = error.message || JSON.stringify(error) || 'Unknown error';
+            alert(`Error creating booking: ${errorMsg}\n\nMake sure the backend is running on port 3001.`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -37,6 +83,7 @@ function BookingContent() {
                     <div className="lg:col-span-2 space-y-8">
                         <div>
                             <h1 className="text-3xl font-bold mb-6">Book {serviceType}</h1>
+
                             {/* Progress */}
                             <div className="flex items-center gap-4 mb-8 text-sm font-medium text-muted-foreground">
                                 <div className={`flex items-center gap-2 ${step >= 1 ? 'text-primary' : ''}`}>
@@ -62,6 +109,8 @@ function BookingContent() {
                                 <textarea
                                     className="w-full min-h-[120px] rounded-xl border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                                     placeholder="e.g. My kitchen sink is leaking..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
                                 />
                             </div>
 
@@ -100,8 +149,8 @@ function BookingContent() {
                                 </div>
                             </div>
 
-                            <ModernButton size="lg" className="w-full" onClick={handleConfirm}>
-                                Confirm Booking
+                            <ModernButton size="lg" className="w-full" onClick={handleConfirm} disabled={loading}>
+                                {loading ? 'Processing...' : 'Confirm Booking'}
                             </ModernButton>
                         </GlassCard>
                     </div>
@@ -113,11 +162,11 @@ function BookingContent() {
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Service</span>
-                                    <span className="font-medium">{serviceType}</span>
+                                    <span className="font-medium">{serviceType} {providerName && `(by ${providerName})`}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Base Fare</span>
-                                    <span className="font-medium">$20.00</span>
+                                    <span className="text-muted-foreground">Base Rate</span>
+                                    <span className="font-medium">${priceStr}/hr</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Est. Time</span>
@@ -127,7 +176,7 @@ function BookingContent() {
                             <div className="h-[1px] bg-border my-4" />
                             <div className="flex justify-between font-bold text-lg">
                                 <span>Est. Total</span>
-                                <span>$45.00</span>
+                                <span>${priceStr}</span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-4">
                                 *Final price may vary based on actual work required.

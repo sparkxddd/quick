@@ -1,65 +1,78 @@
-const { RateLimiterRedis } = require('rate-limiter-flexible');
-const { redisClient } = require('../server');
+const { RateLimiterRedis, RateLimiterMemory } = require('rate-limiter-flexible');
+// Remove circular dependency on server.js
+// We will initialize limiters lazily or pass the client in
+// For simplicity in this structure, we'll create a factory or just a standalone config that server.js calls.
 
-// -- Configuration --
-const RATE_LIMITS = {
-    common: {
-        points: 20, // 20 requests
-        duration: 60, // per 60 seconds
-        blockDuration: 60 * 5, // Block for 5 minutes if consumed
-    },
-    auth: {
-        points: 5, // 5 attempts
-        duration: 60 * 15, // per 15 minutes
-        blockDuration: 60 * 60, // Block for 1 hour
-    },
-    sensitive: {
-        points: 3,
-        duration: 60,
-        blockDuration: 60 * 30, // 30 mins
-    }
-};
+// Better approach: Export a function that initizlies the limiters given a client
+let limiters = null;
 
-const limiters = {
-    common: new RateLimiterRedis({
-        storeClient: redisClient,
-        keyPrefix: 'rl_common',
-        ...RATE_LIMITS.common,
-    }),
-    auth: new RateLimiterRedis({
-        storeClient: redisClient,
-        keyPrefix: 'rl_auth',
-        ...RATE_LIMITS.auth,
-    }),
-    sensitive: new RateLimiterRedis({
-        storeClient: redisClient,
-        keyPrefix: 'rl_sensitive',
-        ...RATE_LIMITS.sensitive,
-    }),
+const initRateLimiters = (redisClient) => {
+    if (limiters) return limiters;
+
+    // Fallback to Memory implementation if no Redis client (common on Windows dev)
+    const isRedis = !!redisClient && redisClient.status === 'ready';
+
+    // Config
+    const RATE_LIMITS = {
+        common: { points: 20, duration: 60, blockDuration: 60 * 5 },
+        auth: { points: 5, duration: 60 * 15, blockDuration: 60 * 60 },
+        sensitive: { points: 3, duration: 60, blockDuration: 60 * 30 }
+    };
+
+    const createLimiter = (options) => {
+        if (isRedis) {
+            return new RateLimiterRedis({
+                storeClient: redisClient,
+                ...options
+            });
+        } else {
+            // Memory fallback
+            console.log(`⚠️  Redis not available. Using Memory Rate Limiter for ${options.keyPrefix}`);
+            return new RateLimiterMemory({
+                ...options
+            });
+        }
+    };
+
+    limiters = {
+        common: createLimiter({ keyPrefix: 'rl_common', ...RATE_LIMITS.common }),
+        auth: createLimiter({ keyPrefix: 'rl_auth', ...RATE_LIMITS.auth }),
+        sensitive: createLimiter({ keyPrefix: 'rl_sensitive', ...RATE_LIMITS.sensitive }),
+    };
+
+    return limiters;
 };
 
 /**
  * Rate Limiter Middleware
  * @param {'common' | 'auth' | 'sensitive'} type
  */
-const rateLimiter = (type = 'common') => (req, res, next) => {
-    const limiter = limiters[type] || limiters.common;
+// We modify the export to be the initialization function AND the middleware
+// But the middleware needs access to the initialized limiters.
 
-    // Identify user: User ID (if auth) or IP + User Agent (if anon)
-    // Ensure we rely on a trusted source for userID (req.user set by auth middleware)
-    const key = req.user ? req.user.id : `${req.ip}_${req.headers['user-agent'] || 'unknown'}`;
+module.exports = {
+    init: initRateLimiters,
+    middleware: (type = 'common') => (req, res, next) => {
+        // Safety check if someone forgot to init
+        if (!limiters) {
+            // Attempt to init with null (Memory mode) if not set effectively
+            console.warn("Rate limiters not initialized, falling back to memory request-scoped (not effective globally but prevents crash)");
+            initRateLimiters(null);
+        }
 
-    limiter.consume(key)
-        .then(() => {
-            next();
-        })
-        .catch((rejRes) => {
-            res.status(429).json({
-                error: 'Too Many Requests',
-                message: 'Rate limit exceeded. Please try again later.',
-                retryAfter: Math.round(rejRes.msBeforeNext / 1000) || 60,
+        const limiter = limiters[type] || limiters.common;
+        const key = req.user ? req.user.id : `${req.ip}_${req.headers['user-agent'] || 'unknown'}`;
+
+        limiter.consume(key)
+            .then(() => {
+                next();
+            })
+            .catch((rejRes) => {
+                res.status(429).json({
+                    error: 'Too Many Requests',
+                    message: 'Rate limit exceeded. Please try again later.',
+                    retryAfter: Math.round(rejRes.msBeforeNext / 1000) || 60,
+                });
             });
-        });
+    }
 };
-
-module.exports = rateLimiter;

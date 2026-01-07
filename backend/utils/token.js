@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { redisClient } = require('../server');
+const redisClient = require('../config/redis');
 const env = require('../config/env');
 const crypto = require('crypto');
 

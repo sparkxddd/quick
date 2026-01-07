@@ -12,7 +12,7 @@ const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
 // POST /auth/login - Google Auth
 router.post('/login',
-    rateLimiter('auth'), // Strict rate limit
+    rateLimiter.middleware('auth'), // Strict rate limit
     validate(loginSchema),
     async (req, res) => {
         const { idToken, deviceId } = req.body;
@@ -54,7 +54,7 @@ router.post('/login',
 
 // POST /auth/refresh - Rotate Tokens
 router.post('/refresh',
-    rateLimiter('auth'),
+    rateLimiter.middleware('auth'),
     validate(refreshTokenSchema),
     async (req, res) => {
         const { refreshToken, deviceId } = req.body;
