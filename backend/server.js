@@ -12,6 +12,7 @@ app.use(helmet()); // Set secure HTTP headers
 // Relaxed CORS for mobile/dev
 const allowedOrigins = [
     process.env.FRONTEND_URL,
+    'https://quick-bh1a.onrender.com',
     'http://localhost:3000',
     'http://localhost',
     'capacitor://localhost',
@@ -23,7 +24,7 @@ app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || origin.startsWith('capacitor://localhost')) {
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || origin.startsWith('capacitor://localhost') || origin.startsWith('https://quick-bh1a.onrender.com')) {
             callback(null, true);
         } else {
             console.warn(`[CORS] Rejected origin: ${origin}`);
